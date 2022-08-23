@@ -29,6 +29,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/types.h>
+#include <sys/stat.h>
 #include <sys/wait.h>
 #include <X11/cursorfont.h>
 #include <X11/keysym.h>
@@ -150,6 +151,7 @@ static void attach(Client *c);
 static void attachstack(Client *c);
 static void buttonpress(XEvent *e);
 static void checkotherwm(void);
+static void cleanagent(void);
 static void cleanup(void);
 static void cleanupmon(Monitor *mon);
 static void clientmessage(XEvent *e);
@@ -194,6 +196,9 @@ static void resizeclient(Client *c, int x, int y, int w, int h);
 static void resizemouse(const Arg *arg);
 static void restack(Monitor *m);
 static void run(void);
+static pid_t runagent(char *agent_cmd[], const char *pid_env);
+static void runautostart(void);
+static int runcmd(char *cmd_args[], char **pout);
 static void scan(void);
 static int sendevent(Client *c, Atom proto);
 static void sendmon(Client *c, Monitor *m);
@@ -207,6 +212,7 @@ static void seturgent(Client *c, int urg);
 static void showhide(Client *c);
 static void sigchld(int unused);
 static void spawn(const Arg *arg);
+static void startagent(void);
 static void tag(const Arg *arg);
 static void tagmon(const Arg *arg);
 static void tile(Monitor *);
@@ -236,7 +242,12 @@ static int xerrorstart(Display *dpy, XErrorEvent *ee);
 static void zoom(const Arg *arg);
 
 /* variables */
+static const char autostartblocksh[] = "autostart_blocking.sh";
+static const char autostartsh[] = "autostart.sh";
 static const char broken[] = "broken";
+static const char dwmdir[] = "dwm";
+static const char localshare[] = ".local/share";
+static pid_t ssh_agent_pid = 0;
 static char stext[256];
 static int screen;
 static int sw, sh;           /* X display screen geometry width, height */
@@ -432,9 +443,15 @@ buttonpress(XEvent *e)
 	}
 	if (ev->window == selmon->barwin) {
 		i = x = 0;
-		do
+		unsigned int occ = 0;
+		for(c = m->clients; c; c=c->next)
+			occ |= c->tags;
+		do {
+			/* Do not reserve space for vacant tags */
+			if (!(occ & 1 << i || m->tagset[m->seltags] & 1 << i))
+				continue;
 			x += TEXTW(tags[i]);
-		while (ev->x >= x && ++i < LENGTH(tags));
+		} while (ev->x >= x && ++i < LENGTH(tags));
 		if (i < LENGTH(tags)) {
 			click = ClkTagBar;
 			arg.ui = 1 << i;
@@ -465,6 +482,13 @@ checkotherwm(void)
 	XSync(dpy, False);
 	XSetErrorHandler(xerror);
 	XSync(dpy, False);
+}
+
+static void
+cleanagent(void)
+{
+    if (ssh_agent_pid)
+        kill(ssh_agent_pid, SIGTERM);
 }
 
 void
@@ -719,13 +743,12 @@ drawbar(Monitor *m)
 	}
 	x = 0;
 	for (i = 0; i < LENGTH(tags); i++) {
+		/* Do not draw vacant tags */
+		if(!(occ & 1 << i || m->tagset[m->seltags] & 1 << i))
+			continue;
 		w = TEXTW(tags[i]);
 		drw_setscheme(drw, scheme[m->tagset[m->seltags] & 1 << i ? SchemeSel : SchemeNorm]);
 		drw_text(drw, x, 0, w, bh, lrpad / 2, tags[i], urg & 1 << i);
-		if (occ & 1 << i)
-			drw_rect(drw, x + boxs, boxs, boxw, boxw,
-				m == selmon && selmon->sel && selmon->sel->tags & 1 << i,
-				urg & 1 << i);
 		x += w;
 	}
 	w = blw = TEXTW(m->ltsymbol);
@@ -1384,6 +1407,167 @@ run(void)
 			handler[ev.type](&ev); /* call handler */
 }
 
+static pid_t
+runagent(char *agent_cmd[], const char *pid_env)
+{
+    fprintf(stderr, "run agent %s\n", agent_cmd[0]);
+    char *output;
+    if (runcmd(agent_cmd, &output)) {
+        return 0;
+    }
+    pid_t agent_pid = 0;
+    const char *sep = "; \r\n\t";
+    char *s = output;
+    while (s && *s) {
+        char *expr = s;
+        s = strpbrk(s, sep);
+        if (s) {
+            int n = strspn(s, sep);
+            *s = 0;
+            s = s + n;
+        }
+        if (*expr == '#')
+            continue;
+        char *val = strchr(expr, '=');
+        if (!val)
+            continue;
+        *val++ = 0;
+        setenv(expr, val, 1);
+        if (!strcmp(expr, pid_env))
+            agent_pid = atoi(val);
+    }
+    free(output);
+    return agent_pid;
+}
+
+void
+runautostart(void)
+{
+	char *pathpfx;
+	char *path;
+	char *xdgdatahome;
+	char *home;
+	struct stat sb;
+
+	if ((home = getenv("HOME")) == NULL)
+		/* this is almost impossible */
+		return;
+
+	/* if $XDG_DATA_HOME is set and not empty, use $XDG_DATA_HOME/dwm,
+	 * otherwise use ~/.local/share/dwm as autostart script directory
+	 */
+	xdgdatahome = getenv("XDG_DATA_HOME");
+	if (xdgdatahome != NULL && *xdgdatahome != '\0') {
+		/* space for path segments, separators and nul */
+		pathpfx = ecalloc(1, strlen(xdgdatahome) + strlen(dwmdir) + 2);
+
+		if (sprintf(pathpfx, "%s/%s", xdgdatahome, dwmdir) <= 0) {
+			free(pathpfx);
+			return;
+		}
+	} else {
+		/* space for path segments, separators and nul */
+		pathpfx = ecalloc(1, strlen(home) + strlen(localshare)
+		                     + strlen(dwmdir) + 3);
+
+		if (sprintf(pathpfx, "%s/%s/%s", home, localshare, dwmdir) < 0) {
+			free(pathpfx);
+			return;
+		}
+	}
+
+	/* check if the autostart script directory exists */
+	if (! (stat(pathpfx, &sb) == 0 && S_ISDIR(sb.st_mode))) {
+		/* the XDG conformant path does not exist or is no directory
+		 * so we try ~/.dwm instead
+		 */
+		char *pathpfx_new = realloc(pathpfx, strlen(home) + strlen(dwmdir) + 3);
+		if(pathpfx_new == NULL) {
+			free(pathpfx);
+			return;
+		}
+		pathpfx = pathpfx_new;
+
+		if (sprintf(pathpfx, "%s/.%s", home, dwmdir) <= 0) {
+			free(pathpfx);
+			return;
+		}
+	}
+
+	/* try the blocking script first */
+	path = ecalloc(1, strlen(pathpfx) + strlen(autostartblocksh) + 2);
+	if (sprintf(path, "%s/%s", pathpfx, autostartblocksh) <= 0) {
+		free(path);
+		free(pathpfx);
+	}
+
+	if (access(path, X_OK) == 0)
+		system(path);
+
+	/* now the non-blocking script */
+	if (sprintf(path, "%s/%s", pathpfx, autostartsh) <= 0) {
+		free(path);
+		free(pathpfx);
+	}
+
+	if (access(path, X_OK) == 0)
+		system(strcat(path, " &"));
+
+	free(pathpfx);
+	free(path);
+}
+
+static int
+runcmd(char *cmd_args[], char **pout)
+{
+    int pipefd[2];
+    if (pipe(pipefd) < 0)
+        return 1;
+    pid_t child = fork();
+    if (child < 0)
+        return 1;
+    if (child == 0) {
+        close(pipefd[0]);
+        dup2(pipefd[1], STDOUT_FILENO);
+        close(pipefd[1]);
+        execv(cmd_args[0], (char **)cmd_args);
+        exit(0);
+    }
+
+    close(pipefd[1]);
+    int cap = 256;
+    char *outbuf = malloc(cap);
+    int len = 0;
+	#define MAX_OUTBUF_SIZE (1<<20)
+    while (len < MAX_OUTBUF_SIZE) {
+        int n = read(pipefd[0], outbuf + len, cap - len);
+        if (n < 0) {
+            if (errno == EINTR)
+                continue;
+            break;
+        }
+        if (n == 0)
+            break;
+        len += n;
+        if (len == cap) {
+            cap += cap > 4096 ? 4096 : cap;
+            outbuf = realloc(outbuf, cap);
+        }
+    }
+    close(pipefd[0]);
+    outbuf[len] = 0;
+
+    int status = 0;
+    wait(&status);
+
+    if (status)
+        free(outbuf);
+    else
+        *pout = outbuf;
+
+    return status;
+}
+
 void
 scan(void)
 {
@@ -1654,6 +1838,24 @@ spawn(const Arg *arg)
 		perror(" failed");
 		exit(EXIT_SUCCESS);
 	}
+}
+
+static void
+startagent(void)
+{
+    char *ssh_agent_cmd[] = { "/usr/bin/ssh-agent", "-s", NULL };
+    if (!access(ssh_agent_cmd[0], X_OK)) {
+        ssh_agent_pid = runagent(ssh_agent_cmd, "SSH_AGENT_PID");
+        if (ssh_agent_pid > 0) {
+            // see: https://github.com/xfce-mirror/xfce4-session/blob/xfce-4.16/xfce4-session/xfsm-startup.c#L305
+            if (!access("/run/systemd/seats/", F_OK))
+                system("dbus-update-activation-environment --systemd SSH_AUTH_SOCK");
+            else
+                system("dbus-update-activation-environment SSH_AUTH_SOCK");
+        }
+    } else {
+        fprintf(stderr, "no ssh-agent executable\n");
+    }
 }
 
 void
@@ -2148,7 +2350,10 @@ main(int argc, char *argv[])
 		die("pledge");
 #endif /* __OpenBSD__ */
 	scan();
+	runautostart();
+	startagent();
 	run();
+	cleanagent();
 	cleanup();
 	XCloseDisplay(dpy);
 	return EXIT_SUCCESS;
