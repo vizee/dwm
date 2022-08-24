@@ -11,16 +11,19 @@ static const char col_gray1[]       = "#222222";
 static const char col_gray2[]       = "#484848";
 static const char col_gray3[]       = "#bbbbbb";
 static const char col_gray4[]       = "#eeeeee";
+static const char col_gray5[]       = "#808080";
 static const char col_cyan[]        = "#323232";
 static const char *colors[][3]      = {
 	/*               fg         bg         border   */
 	[SchemeNorm] = { col_gray3, col_gray1, col_gray2 },
 	[SchemeSel]  = { col_gray4, col_cyan,  col_cyan  },
-	[SchemeHid]  = { col_cyan,  col_gray1, col_cyan  },
+	[SchemeHid]  = { col_gray5, col_gray1, col_cyan  },
 };
 
 /* tagging */
 static const char *tags[] = { "1", "2", "3", "4", "5", "6", "7", "8", "9" };
+
+#define CHROME_PIP "Picture in picture"
 
 static const Rule rules[] = {
 	/* xprop(1):
@@ -30,8 +33,9 @@ static const Rule rules[] = {
 	/* class      instance    title       tags mask     isfloating   monitor */
 	// { "Gimp",     NULL,       NULL,       0,            1,           -1 },
 	// { "Firefox",  NULL,       NULL,       1 << 8,       0,           -1 },
-	{ "Wine",           NULL,       NULL,       1 << 3,     1,           -1 },
-	{ NULL,  NULL,       "Picture in picture",       0,          1,           -1 },
+	{ "Wine",     NULL,       NULL,       1 << 8,       1,           -1 },
+	{ NULL,       NULL,       CHROME_PIP, 0,            1,           -1 },
+	{ "weixin",   NULL,       NULL,       0,            1,           -1 },
 };
 
 /* layout(s) */
