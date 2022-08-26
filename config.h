@@ -35,7 +35,6 @@ static const Rule rules[] = {
 	// { "Firefox",  NULL,       NULL,       1 << 8,       0,           -1 },
 	{ "Wine",     NULL,       NULL,       1 << 8,       1,           -1 },
 	{ NULL,       NULL,       CHROME_PIP, 0,            1,           -1 },
-	{ "weixin",   NULL,       NULL,       0,            1,           -1 },
 };
 
 /* layout(s) */
@@ -81,7 +80,7 @@ static Key keys[] = {
 	{ MODKEY|ControlMask,           XK_l,      spawn,          {.v = slockcmd } },
 	{ MODKEY,                       XK_F11,    spawn,          {.v = voldowncmd } },
 	{ MODKEY,                       XK_F12,    spawn,          {.v = volupcmd } },
-	{ MODKEY,                       XK_b,      togglebar,      {0} },
+	{ MODKEY,                       XK_f,      togglebar,      {0} },
 	{ MODKEY,                       XK_j,      focusstackvis,  {.i = +1 } },
 	{ MODKEY,                       XK_k,      focusstackvis,  {.i = -1 } },
 	{ MODKEY|ShiftMask,             XK_j,      focusstackhid,  {.i = +1 } },
@@ -93,8 +92,8 @@ static Key keys[] = {
 	{ MODKEY,                       XK_Return, zoom,           {0} },
 	{ MODKEY,                       XK_Tab,    view,           {0} },
 	{ MODKEY|ShiftMask,             XK_c,      killclient,     {0} },
-	{ MODKEY|ShiftMask,             XK_t,      setlayout,      {.v = &layouts[0]} },
-	{ MODKEY,                       XK_f,      setlayout,      {.v = &layouts[1]} },
+	{ MODKEY|ShiftMask,             XK_b,      setlayout,      {.v = &layouts[0]} },
+	{ MODKEY,                       XK_n,      setlayout,      {.v = &layouts[1]} },
 	{ MODKEY,                       XK_m,      setlayout,      {.v = &layouts[2]} },
 	{ MODKEY,                       XK_space,  setlayout,      {0} },
 	{ MODKEY|ShiftMask,             XK_space,  togglefloating, {0} },
