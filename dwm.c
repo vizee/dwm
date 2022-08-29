@@ -49,7 +49,7 @@
 #define BUTTONMASK              (ButtonPressMask|ButtonReleaseMask)
 #define CLEANMASK(mask)         (mask & ~(numlockmask|LockMask) & (ShiftMask|ControlMask|Mod1Mask|Mod2Mask|Mod3Mask|Mod4Mask|Mod5Mask))
 #define INTERSECT(x,y,w,h,m)    (MAX(0, MIN((x)+(w),(m)->wx+(m)->ww) - MAX((x),(m)->wx)) \
-                               * MAX(0, MIN((y)+(h),(m)->wy+(m)->wh) - MAX((y),(m)->wy)))
+									* MAX(0, MIN((y)+(h),(m)->wy+(m)->wh) - MAX((y),(m)->wy)))
 #define ISVISIBLE(C)            ((C->tags & C->mon->tagset[C->mon->seltags]))
 #define HIDDEN(C)               ((getstate(C->win) == IconicState))
 #define LENGTH(X)               (sizeof X / sizeof X[0])
@@ -63,11 +63,11 @@
 enum { CurNormal, CurResize, CurMove, CurLast }; /* cursor */
 enum { SchemeNorm, SchemeSel, SchemeHid }; /* color schemes */
 enum { NetSupported, NetWMName, NetWMState, NetWMCheck,
-       NetWMFullscreen, NetActiveWindow, NetWMWindowType,
-       NetWMWindowTypeDialog, NetClientList, NetLast }; /* EWMH atoms */
+	   NetWMFullscreen, NetActiveWindow, NetWMWindowType,
+	   NetWMWindowTypeDialog, NetClientList, NetLast }; /* EWMH atoms */
 enum { WMProtocols, WMDelete, WMState, WMTakeFocus, WMLast }; /* default atoms */
 enum { ClkTagBar, ClkLtSymbol, ClkStatusText, ClkWinTitle,
-       ClkClientWin, ClkRootWin, ClkLast }; /* clicks */
+	   ClkClientWin, ClkRootWin, ClkLast }; /* clicks */
 
 typedef union {
 	int i;
@@ -514,8 +514,8 @@ checkotherwm(void)
 static void
 cleanagent(void)
 {
-    if (ssh_agent_pid)
-        kill(ssh_agent_pid, SIGTERM);
+	if (ssh_agent_pid)
+		kill(ssh_agent_pid, SIGTERM);
 }
 
 void
@@ -1537,34 +1537,34 @@ run(void)
 static pid_t
 runagent(char *agent_cmd[], const char *pid_env)
 {
-    fprintf(stderr, "run agent %s\n", agent_cmd[0]);
-    char *output;
-    if (runcmd(agent_cmd, &output)) {
-        return 0;
-    }
-    pid_t agent_pid = 0;
-    const char *sep = "; \r\n\t";
-    char *s = output;
-    while (s && *s) {
-        char *expr = s;
-        s = strpbrk(s, sep);
-        if (s) {
-            int n = strspn(s, sep);
-            *s = 0;
-            s = s + n;
-        }
-        if (*expr == '#')
-            continue;
-        char *val = strchr(expr, '=');
-        if (!val)
-            continue;
-        *val++ = 0;
-        setenv(expr, val, 1);
-        if (!strcmp(expr, pid_env))
-            agent_pid = atoi(val);
-    }
-    free(output);
-    return agent_pid;
+	fprintf(stderr, "run agent %s\n", agent_cmd[0]);
+	char *output;
+	if (runcmd(agent_cmd, &output)) {
+		return 0;
+	}
+	pid_t agent_pid = 0;
+	const char *sep = "; \r\n\t";
+	char *s = output;
+	while (s && *s) {
+		char *expr = s;
+		s = strpbrk(s, sep);
+		if (s) {
+			int n = strspn(s, sep);
+			*s = 0;
+			s = s + n;
+		}
+		if (*expr == '#')
+			continue;
+		char *val = strchr(expr, '=');
+		if (!val)
+			continue;
+		*val++ = 0;
+		setenv(expr, val, 1);
+		if (!strcmp(expr, pid_env))
+			agent_pid = atoi(val);
+	}
+	free(output);
+	return agent_pid;
 }
 
 void
@@ -1595,7 +1595,7 @@ runautostart(void)
 	} else {
 		/* space for path segments, separators and nul */
 		pathpfx = ecalloc(1, strlen(home) + strlen(localshare)
-		                     + strlen(dwmdir) + 3);
+							 + strlen(dwmdir) + 3);
 
 		if (sprintf(pathpfx, "%s/%s/%s", home, localshare, dwmdir) < 0) {
 			free(pathpfx);
@@ -1647,52 +1647,52 @@ runautostart(void)
 static int
 runcmd(char *cmd_args[], char **pout)
 {
-    int pipefd[2];
-    if (pipe(pipefd) < 0)
-        return 1;
-    pid_t child = fork();
-    if (child < 0)
-        return 1;
-    if (child == 0) {
-        close(pipefd[0]);
-        dup2(pipefd[1], STDOUT_FILENO);
-        close(pipefd[1]);
-        execv(cmd_args[0], (char **)cmd_args);
-        exit(0);
-    }
+	int pipefd[2];
+	if (pipe(pipefd) < 0)
+		return 1;
+	pid_t child = fork();
+	if (child < 0)
+		return 1;
+	if (child == 0) {
+		close(pipefd[0]);
+		dup2(pipefd[1], STDOUT_FILENO);
+		close(pipefd[1]);
+		execv(cmd_args[0], (char **)cmd_args);
+		exit(0);
+	}
 
-    close(pipefd[1]);
-    int cap = 256;
-    char *outbuf = malloc(cap);
-    int len = 0;
+	close(pipefd[1]);
+	int cap = 256;
+	char *outbuf = malloc(cap);
+	int len = 0;
 	#define MAX_OUTBUF_SIZE (1<<20)
-    while (len < MAX_OUTBUF_SIZE) {
-        int n = read(pipefd[0], outbuf + len, cap - len);
-        if (n < 0) {
-            if (errno == EINTR)
-                continue;
-            break;
-        }
-        if (n == 0)
-            break;
-        len += n;
-        if (len == cap) {
-            cap += cap > 4096 ? 4096 : cap;
-            outbuf = realloc(outbuf, cap);
-        }
-    }
-    close(pipefd[0]);
-    outbuf[len] = 0;
+	while (len < MAX_OUTBUF_SIZE) {
+		int n = read(pipefd[0], outbuf + len, cap - len);
+		if (n < 0) {
+			if (errno == EINTR)
+				continue;
+			break;
+		}
+		if (n == 0)
+			break;
+		len += n;
+		if (len == cap) {
+			cap += cap > 4096 ? 4096 : cap;
+			outbuf = realloc(outbuf, cap);
+		}
+	}
+	close(pipefd[0]);
+	outbuf[len] = 0;
 
-    int status = 0;
-    wait(&status);
+	int status = 0;
+	wait(&status);
 
-    if (status)
-        free(outbuf);
-    else
-        *pout = outbuf;
+	if (status)
+		free(outbuf);
+	else
+		*pout = outbuf;
 
-    return status;
+	return status;
 }
 
 void
@@ -1989,19 +1989,19 @@ spawn(const Arg *arg)
 static void
 startagent(void)
 {
-    char *ssh_agent_cmd[] = { "/usr/bin/ssh-agent", "-s", NULL };
-    if (!access(ssh_agent_cmd[0], X_OK)) {
-        ssh_agent_pid = runagent(ssh_agent_cmd, "SSH_AGENT_PID");
-        if (ssh_agent_pid > 0) {
-            // see: https://github.com/xfce-mirror/xfce4-session/blob/xfce-4.16/xfce4-session/xfsm-startup.c#L305
-            if (!access("/run/systemd/seats/", F_OK))
-                system("dbus-update-activation-environment --systemd SSH_AUTH_SOCK");
-            else
-                system("dbus-update-activation-environment SSH_AUTH_SOCK");
-        }
-    } else {
-        fprintf(stderr, "no ssh-agent executable\n");
-    }
+	char *ssh_agent_cmd[] = { "/usr/bin/ssh-agent", "-s", NULL };
+	if (!access(ssh_agent_cmd[0], X_OK)) {
+		ssh_agent_pid = runagent(ssh_agent_cmd, "SSH_AGENT_PID");
+		if (ssh_agent_pid > 0) {
+			// see: https://github.com/xfce-mirror/xfce4-session/blob/xfce-4.16/xfce4-session/xfsm-startup.c#L305
+			if (!access("/run/systemd/seats/", F_OK))
+				system("dbus-update-activation-environment --systemd SSH_AUTH_SOCK");
+			else
+				system("dbus-update-activation-environment SSH_AUTH_SOCK");
+		}
+	} else {
+		fprintf(stderr, "no ssh-agent executable\n");
+	}
 }
 
 void
@@ -2018,8 +2018,8 @@ void
 tagview(const Arg *arg)
 {
 	if (selmon->sel && arg->ui & TAGMASK) {
-        tag(arg);
-        view(arg);
+		tag(arg);
+		view(arg);
 	}
 }
 
