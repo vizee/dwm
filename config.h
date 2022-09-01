@@ -23,8 +23,6 @@ static const char *colors[][3]      = {
 /* tagging */
 static const char *tags[] = { "1", "2", "3", "4", "5", "6", "7", "8", "9" };
 
-#define CHROME_PIP "Picture in picture"
-
 static const Rule rules[] = {
 	/* xprop(1):
 	 *	WM_CLASS(STRING) = instance, class
@@ -34,7 +32,6 @@ static const Rule rules[] = {
 	// { "Gimp",     NULL,       NULL,       0,            1,           -1 },
 	// { "Firefox",  NULL,       NULL,       1 << 8,       0,           -1 },
 	{ "Wine",     NULL,       NULL,       1 << 8,       1,           -1 },
-	{ NULL,       NULL,       CHROME_PIP, 0,            1,           -1 },
 };
 
 /* layout(s) */
@@ -70,6 +67,7 @@ static const char *fmcmd[]  = { "exo-open", "--launch", "FileManager", NULL };
 static const char *slockcmd[] = { "slock", NULL };
 static const char *volupcmd[] = { "pulseaudio-ctl", "up", NULL };
 static const char *voldowncmd[] = { "pulseaudio-ctl", "down", NULL };
+static const char *screenshotcmd[] = { "flameshot", "gui", NULL };
 
 static Key keys[] = {
 	/* modifier                     key        function        argument */
@@ -80,6 +78,7 @@ static Key keys[] = {
 	{ MODKEY|ControlMask,           XK_l,      spawn,          {.v = slockcmd } },
 	{ MODKEY,                       XK_F11,    spawn,          {.v = voldowncmd } },
 	{ MODKEY,                       XK_F12,    spawn,          {.v = volupcmd } },
+	{ 0,                            XK_Print,  spawn,          {.v = screenshotcmd } },
 	{ MODKEY,                       XK_f,      togglebar,      {0} },
 	{ MODKEY,                       XK_j,      focusstackvis,  {.i = +1 } },
 	{ MODKEY,                       XK_k,      focusstackvis,  {.i = -1 } },
