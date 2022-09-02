@@ -23,6 +23,8 @@ static const char *colors[][3]      = {
 /* tagging */
 static const char *tags[] = { "1", "2", "3", "4", "5", "6", "7", "8", "9" };
 
+#define FF_PIP "Picture-in-Picture"
+
 static const Rule rules[] = {
 	/* xprop(1):
 	 *	WM_CLASS(STRING) = instance, class
@@ -32,6 +34,7 @@ static const Rule rules[] = {
 	// { "Gimp",     NULL,       NULL,       0,            1,           -1 },
 	// { "Firefox",  NULL,       NULL,       1 << 8,       0,           -1 },
 	{ "Wine",     NULL,       NULL,       1 << 8,       1,           -1 },
+	{ "firefox",  "Toolkit",  NULL,       0,            1,           -1 },
 };
 
 /* layout(s) */
