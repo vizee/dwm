@@ -73,7 +73,6 @@ static const char *screenshotcmd[] = { "flameshot", "gui", NULL };
 static Key keys[] = {
 	/* modifier                     key        function        argument */
 	{ MODKEY,                       XK_p,      spawn,          {.v = dmenucmd } },
-	{ MODKEY,                       XK_t,      spawn,          {.v = termcmd } },
 	{ MODKEY,                       XK_grave,  spawn,          {.v = termcmd } },
 	{ MODKEY,                       XK_e,      spawn,          {.v = fmcmd } },
 	{ MODKEY,                       XK_w,      spawn,          {.v = webcmd } },
@@ -93,9 +92,9 @@ static Key keys[] = {
 	{ MODKEY,                       XK_Return, zoom,           {0} },
 	{ MODKEY,                       XK_Tab,    view,           {0} },
 	{ MODKEY|ShiftMask,             XK_c,      killclient,     {0} },
-	{ MODKEY,                       XK_b,      setlayout,      {.v = &layouts[0]} },
-	{ MODKEY,                       XK_n,      setlayout,      {.v = &layouts[1]} },
-	{ MODKEY,                       XK_m,      setlayout,      {.v = &layouts[2]} },
+	{ MODKEY,                       XK_F1,     setlayout,      {.v = &layouts[0]} },
+	{ MODKEY,                       XK_F2,     setlayout,      {.v = &layouts[1]} },
+	{ MODKEY,                       XK_F3,     setlayout,      {.v = &layouts[2]} },
 	{ MODKEY,                       XK_space,  setlayout,      {0} },
 	{ MODKEY|ShiftMask,             XK_space,  togglefloating, {0} },
 	{ MODKEY,                       XK_0,      view,           {.ui = ~0 } },
@@ -106,6 +105,7 @@ static Key keys[] = {
 	{ MODKEY|ShiftMask,             XK_period, tagmon,         {.i = +1 } },
 	{ MODKEY,                       XK_s,      show,           {0} },
 	{ MODKEY,                       XK_h,      hide,           {0} },
+	{ MODKEY,                       XK_m,      hide,           {0} },
 	{ MODKEY,                       XK_d,      hideall,        {0} },
 	TAGKEYS(                        XK_1,                      0)
 	TAGKEYS(                        XK_2,                      1)
