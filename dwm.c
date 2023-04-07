@@ -44,12 +44,13 @@
 
 #include "drw.h"
 #include "util.h"
+#include "mychanges.h"
 
 /* macros */
 #define BUTTONMASK              (ButtonPressMask|ButtonReleaseMask)
 #define CLEANMASK(mask)         (mask & ~(numlockmask|LockMask) & (ShiftMask|ControlMask|Mod1Mask|Mod2Mask|Mod3Mask|Mod4Mask|Mod5Mask))
 #define INTERSECT(x,y,w,h,m)    (MAX(0, MIN((x)+(w),(m)->wx+(m)->ww) - MAX((x),(m)->wx)) \
-									* MAX(0, MIN((y)+(h),(m)->wy+(m)->wh) - MAX((y),(m)->wy)))
+                               * MAX(0, MIN((y)+(h),(m)->wy+(m)->wh) - MAX((y),(m)->wy)))
 #define ISVISIBLE(C)            ((C->tags & C->mon->tagset[C->mon->seltags]))
 #define HIDDEN(C)               ((getstate(C->win) == IconicState))
 #define LENGTH(X)               (sizeof X / sizeof X[0])
@@ -63,11 +64,11 @@
 enum { CurNormal, CurResize, CurMove, CurLast }; /* cursor */
 enum { SchemeNorm, SchemeSel, SchemeHid }; /* color schemes */
 enum { NetSupported, NetWMName, NetWMState, NetWMCheck,
-	   NetWMFullscreen, NetActiveWindow, NetWMWindowType,
-	   NetWMWindowTypeDialog, NetClientList, NetLast }; /* EWMH atoms */
+       NetWMFullscreen, NetActiveWindow, NetWMWindowType,
+       NetWMWindowTypeDialog, NetClientList, NetLast }; /* EWMH atoms */
 enum { WMProtocols, WMDelete, WMState, WMTakeFocus, WMLast }; /* default atoms */
 enum { ClkTagBar, ClkLtSymbol, ClkStatusText, ClkWinTitle,
-	   ClkClientWin, ClkRootWin, ClkLast }; /* clicks */
+       ClkClientWin, ClkRootWin, ClkLast }; /* clicks */
 
 typedef union {
 	int i;
@@ -155,7 +156,6 @@ static void attach(Client *c);
 static void attachstack(Client *c);
 static void buttonpress(XEvent *e);
 static void checkotherwm(void);
-static void cleanagent(void);
 static void cleanup(void);
 static void cleanupmon(Monitor *mon);
 static void clientmessage(XEvent *e);
@@ -205,9 +205,7 @@ static void resizeclient(Client *c, int x, int y, int w, int h);
 static void resizemouse(const Arg *arg);
 static void restack(Monitor *m);
 static void run(void);
-static pid_t runagent(char *agent_cmd[], const char *pid_env);
 static void runautostart(void);
-static int runcmd(char *cmd_args[], char **pout);
 static void scan(void);
 static int sendevent(Client *c, Atom proto);
 static void sendmon(Client *c, Monitor *m);
@@ -219,14 +217,14 @@ static void setmfact(const Arg *arg);
 static void setup(void);
 static void seturgent(Client *c, int urg);
 static void show(const Arg *arg);
+static void showall(const Arg *arg);
 static void showwin(Client *c);
 static void showhide(Client *c);
 static void sigchld(int unused);
 static void spawn(const Arg *arg);
-static void startagent(void);
 static void tag(const Arg *arg);
-static void tagview(const Arg *arg);
 static void tagmon(const Arg *arg);
+static void tagview(const Arg *arg);
 static void tile(Monitor *);
 static void togglebar(const Arg *arg);
 static void togglefloating(const Arg *arg);
@@ -260,7 +258,6 @@ static const char autostartsh[] = "autostart.sh";
 static const char broken[] = "broken";
 static const char dwmdir[] = "dwm";
 static const char localshare[] = ".local/share";
-static pid_t ssh_agent_pid = 0;
 static char stext[256];
 static int screen;
 static int sw, sh;           /* X display screen geometry width, height */
@@ -482,7 +479,7 @@ buttonpress(XEvent *e)
 					if (!ISVISIBLE(c))
 						continue;
 					else
-						x += (1.0 / (double)m->bt) * m->btw;
+						x +=(1.0 / (double)m->bt) * m->btw;
 				} while (ev->x > x && (c = c->next));
 
 				click = ClkWinTitle;
@@ -510,13 +507,6 @@ checkotherwm(void)
 	XSync(dpy, False);
 	XSetErrorHandler(xerror);
 	XSync(dpy, False);
-}
-
-static void
-cleanagent(void)
-{
-	if (ssh_agent_pid)
-		kill(ssh_agent_pid, SIGTERM);
 }
 
 void
@@ -812,7 +802,6 @@ drawbar(Monitor *m)
 			drw_rect(drw, x, 0, w, bh, 1, 1);
 		}
 	}
-
 	m->bt = n;
 	m->btw = w;
 	drw_map(drw, m->barwin, 0, 0, m->ww, bh);
@@ -914,14 +903,12 @@ focusmon(const Arg *arg)
 }
 
 void
-focusstackvis(const Arg *arg)
-{
+focusstackvis(const Arg *arg) {
 	focusstack(arg->i, 0);
 }
 
 void
-focusstackhid(const Arg *arg)
-{
+focusstackhid(const Arg *arg) {
 	focusstack(arg->i, 1);
 }
 
@@ -929,21 +916,20 @@ void
 focusstack(int inc, int hid)
 {
 	Client *c = NULL, *i;
-
+	// if no client selected AND exclude hidden client; if client selected but fullscreened
 	if ((!selmon->sel && !hid) || (selmon->sel && selmon->sel->isfullscreen && lockfullscreen))
 		return;
 	if (!selmon->clients)
 		return;
-
 	if (inc > 0) {
 		if (selmon->sel)
 			for (c = selmon->sel->next;
-					 c && (!ISVISIBLE(c) || (!hid && HIDDEN(c)));
-					 c = c->next);
+					c && (!ISVISIBLE(c) || (!hid && HIDDEN(c)));
+					c = c->next);
 		if (!c)
 			for (c = selmon->clients;
-					 c && (!ISVISIBLE(c) || (!hid && HIDDEN(c)));
-					 c = c->next);
+					c && (!ISVISIBLE(c) || (!hid && HIDDEN(c)));
+					c = c->next);
 	} else {
 		if (selmon->sel) {
 			for (i = selmon->clients; i != selmon->sel; i = i->next)
@@ -956,11 +942,9 @@ focusstack(int inc, int hid)
 				if (ISVISIBLE(i) && !(!hid && HIDDEN(i)))
 					c = i;
 	}
-
 	if (c) {
 		focus(c);
 		restack(selmon);
-
 		if (HIDDEN(c)) {
 			showwin(c);
 			c->mon->hidsel = 1;
@@ -1545,39 +1529,6 @@ run(void)
 			handler[ev.type](&ev); /* call handler */
 }
 
-static pid_t
-runagent(char *agent_cmd[], const char *pid_env)
-{
-	fprintf(stderr, "run agent %s\n", agent_cmd[0]);
-	char *output;
-	if (runcmd(agent_cmd, &output)) {
-		return 0;
-	}
-	pid_t agent_pid = 0;
-	const char *sep = "; \r\n\t";
-	char *s = output;
-	while (s && *s) {
-		char *expr = s;
-		s = strpbrk(s, sep);
-		if (s) {
-			int n = strspn(s, sep);
-			*s = 0;
-			s = s + n;
-		}
-		if (*expr == '#')
-			continue;
-		char *val = strchr(expr, '=');
-		if (!val)
-			continue;
-		*val++ = 0;
-		setenv(expr, val, 1);
-		if (!strcmp(expr, pid_env))
-			agent_pid = atoi(val);
-	}
-	free(output);
-	return agent_pid;
-}
-
 void
 runautostart(void)
 {
@@ -1606,7 +1557,7 @@ runautostart(void)
 	} else {
 		/* space for path segments, separators and nul */
 		pathpfx = ecalloc(1, strlen(home) + strlen(localshare)
-							 + strlen(dwmdir) + 3);
+		                     + strlen(dwmdir) + 3);
 
 		if (sprintf(pathpfx, "%s/%s/%s", home, localshare, dwmdir) < 0) {
 			free(pathpfx);
@@ -1653,57 +1604,6 @@ runautostart(void)
 
 	free(pathpfx);
 	free(path);
-}
-
-static int
-runcmd(char *cmd_args[], char **pout)
-{
-	int pipefd[2];
-	if (pipe(pipefd) < 0)
-		return 1;
-	pid_t child = fork();
-	if (child < 0)
-		return 1;
-	if (child == 0) {
-		close(pipefd[0]);
-		dup2(pipefd[1], STDOUT_FILENO);
-		close(pipefd[1]);
-		execv(cmd_args[0], (char **)cmd_args);
-		exit(0);
-	}
-
-	close(pipefd[1]);
-	int cap = 256;
-	char *outbuf = malloc(cap);
-	int len = 0;
-	#define MAX_OUTBUF_SIZE (1<<20)
-	while (len < MAX_OUTBUF_SIZE) {
-		int n = read(pipefd[0], outbuf + len, cap - len);
-		if (n < 0) {
-			if (errno == EINTR)
-				continue;
-			break;
-		}
-		if (n == 0)
-			break;
-		len += n;
-		if (len == cap) {
-			cap += cap > 4096 ? 4096 : cap;
-			outbuf = realloc(outbuf, cap);
-		}
-	}
-	close(pipefd[0]);
-	outbuf[len] = 0;
-
-	int status = 0;
-	wait(&status);
-
-	if (status)
-		free(outbuf);
-	else
-		*pout = outbuf;
-
-	return status;
 }
 
 void
@@ -1945,6 +1845,23 @@ show(const Arg *arg)
 }
 
 void
+showall(const Arg *arg)
+{
+	Client *c = NULL;
+	selmon->hidsel = 0;
+	for (c = selmon->clients; c; c = c->next) {
+		if (ISVISIBLE(c))
+			showwin(c);
+	}
+	if (!selmon->sel) {
+		for (c = selmon->clients; c && !ISVISIBLE(c); c = c->next);
+		if (c)
+			focus(c);
+	}
+	restack(selmon);
+}
+
+void
 showwin(Client *c)
 {
 	if (!c || !HIDDEN(c))
@@ -1997,24 +1914,6 @@ spawn(const Arg *arg)
 	}
 }
 
-static void
-startagent(void)
-{
-	char *ssh_agent_cmd[] = { "/usr/bin/ssh-agent", "-s", NULL };
-	if (!access(ssh_agent_cmd[0], X_OK)) {
-		ssh_agent_pid = runagent(ssh_agent_cmd, "SSH_AGENT_PID");
-		if (ssh_agent_pid > 0) {
-			// see: https://github.com/xfce-mirror/xfce4-session/blob/xfce-4.16/xfce4-session/xfsm-startup.c#L305
-			if (!access("/run/systemd/seats/", F_OK))
-				system("dbus-update-activation-environment --systemd SSH_AUTH_SOCK");
-			else
-				system("dbus-update-activation-environment SSH_AUTH_SOCK");
-		}
-	} else {
-		fprintf(stderr, "no ssh-agent executable\n");
-	}
-}
-
 void
 tag(const Arg *arg)
 {
@@ -2026,20 +1925,20 @@ tag(const Arg *arg)
 }
 
 void
+tagmon(const Arg *arg)
+{
+	if (!selmon->sel || !mons->next)
+		return;
+	sendmon(selmon->sel, dirtomon(arg->i));
+}
+
+void
 tagview(const Arg *arg)
 {
 	if (selmon->sel && arg->ui & TAGMASK) {
 		tag(arg);
 		view(arg);
 	}
-}
-
-void
-tagmon(const Arg *arg)
-{
-	if (!selmon->sel || !mons->next)
-		return;
-	sendmon(selmon->sel, dirtomon(arg->i));
 }
 
 void
